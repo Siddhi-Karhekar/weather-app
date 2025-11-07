@@ -1,0 +1,16 @@
+{
+  "name": "weather-backend",
+  "version": "1.0.0",
+  "description": "Weather prediction backend with Prometheus metrics",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^3.3.2",
+    "prom-client": "^15.0.0",
+    "cors": "^2.8.5"
+  }
+}

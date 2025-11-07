@@ -1,0 +1,37 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: is-weather backend (Express wrapped via @vendia/serverless-express)
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: nodejs18.x
+    MemorySize: 512
+
+Resources:
+  IsWeatherFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: is-weather-backend
+      Handler: src/lambda.handler
+      CodeUri: ../backend/        # relative path from the SAM template
+      Environment:
+        Variables:
+          OPENWEATHER_KEY: !Ref OpenWeatherApiKeyParameter
+      Events:
+        ApiProxy:
+          Type: Api
+          Properties:
+            Path: /api/{proxy+}
+            Method: ANY
+
+Parameters:
+  OpenWeatherApiKeyParameter:
+    Type: String
+    NoEcho: true
+    Description: "OpenWeather API Key (set at deploy time)."
+
+Outputs:
+  ApiUrl:
+    Description: "URL for API Gateway"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/api/"

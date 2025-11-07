@@ -1,0 +1,63 @@
+pipeline {
+  agent any
+
+  environment {
+    DOCKERHUB_REPO = "YOUR_DOCKERHUB_USERNAME/is-weather-backend"
+    IMAGE_TAG = "${env.BUILD_NUMBER}"
+    AWS_REGION = "us-east-1" // change as needed
+    SAM_STACK_NAME = "is-weather-stack"
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Build backend Docker image') {
+      steps {
+        dir('backend') {
+          sh "docker build -t ${DOCKERHUB_REPO}:${IMAGE_TAG} ."
+          sh "docker tag ${DOCKERHUB_REPO}:${IMAGE_TAG} ${DOCKERHUB_REPO}:latest"
+        }
+      }
+    }
+
+    stage('Push image to DockerHub') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKERHUB_USER', passwordVariable: 'DOCKERHUB_PASS')]) {
+          sh "echo ${DOCKERHUB_PASS} | docker login -u ${DOCKERHUB_USER} --password-stdin"
+          sh "docker push ${DOCKERHUB_REPO}:${IMAGE_TAG}"
+          sh "docker push ${DOCKERHUB_REPO}:latest"
+        }
+      }
+    }
+
+    stage('Package & Deploy to AWS (SAM)') {
+      steps {
+        // Jenkins must have AWS credentials configured (via env or credentials)
+        withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+          // Change working directory to infra/aws (SAM template location)
+          dir('infra/aws') {
+            // Install SAM & run deployment (Jenkins agent must have SAM CLI installed)
+            sh '''
+              sam --version || { echo "SAM CLI not installed on agent"; exit 1; }
+              sam build --use-container
+              sam deploy --stack-name ${SAM_STACK_NAME} --s3-bucket YOUR_SAM_DEPLOY_BUCKET --capabilities CAPABILITY_IAM --region ${AWS_REGION} --parameter-overrides OpenWeatherApiKeyParameter=${OPENWEATHER_KEY}
+            '''
+          }
+        }
+      }
+    }
+  }
+
+  post {
+    success {
+      echo "Pipeline finished successfully."
+    }
+    failure {
+      echo "Pipeline failed."
+    }
+  }
+}
